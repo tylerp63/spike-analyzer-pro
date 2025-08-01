@@ -1,9 +1,12 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Play, Camera, BarChart3 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import heroImage from "@/assets/volleyball-hero.jpg";
 
 const Hero = () => {
+  const navigate = useNavigate();
+
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-subtle">
       {/* Background Image */}
@@ -32,7 +35,11 @@ const Hero = () => {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-            <Button variant="hero" size="lg" className="text-lg px-8 py-6">
+            <Button 
+              size="lg" 
+              className="text-lg px-8 py-6 shadow-athletic"
+              onClick={() => navigate("/analysis")}
+            >
               <Camera className="mr-2 h-5 w-5" />
               Analyze My Technique
             </Button>

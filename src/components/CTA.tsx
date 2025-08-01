@@ -1,9 +1,12 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Download, ArrowRight, Star } from "lucide-react";
+import { Download, ArrowRight, Star, Camera } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import analysisBackground from "@/assets/analysis-background.jpg";
 
 const CTA = () => {
+  const navigate = useNavigate();
+
   return (
     <section className="py-20 relative overflow-hidden">
       {/* Background */}
@@ -43,9 +46,13 @@ const CTA = () => {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
-              <Button variant="hero" size="lg" className="text-lg px-8 py-6">
-                <Download className="mr-2 h-5 w-5" />
-                Download for iOS
+              <Button 
+                size="lg" 
+                className="text-lg px-8 py-6 shadow-athletic"
+                onClick={() => navigate("/analysis")}
+              >
+                <Camera className="mr-2 h-5 w-5" />
+                Start Analysis Now
               </Button>
               <Button variant="outline" size="lg" className="text-lg px-8 py-6 border-2">
                 Learn More
