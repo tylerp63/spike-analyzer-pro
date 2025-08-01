@@ -3,10 +3,8 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Upload, Zap, Target, TrendingUp } from "lucide-react";
 import appMockup from "@/assets/app-mockup.jpg";
-
 const AnalysisPreview = () => {
-  return (
-    <section className="py-20 bg-background">
+  return <section className="py-20 bg-background">
       <div className="container mx-auto px-6">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           {/* Left Content */}
@@ -67,11 +65,7 @@ const AnalysisPreview = () => {
           {/* Right Content - App Mockup */}
           <div className="relative animate-scale-in">
             <div className="relative">
-              <img 
-                src={appMockup} 
-                alt="Volleyball analysis app interface" 
-                className="w-full max-w-lg mx-auto rounded-2xl shadow-glow"
-              />
+              <img src={appMockup} alt="Volleyball analysis app interface" className="w-full max-w-lg mx-auto rounded-2xl shadow-glow" />
               {/* Floating elements */}
               <div className="absolute -top-4 -right-4 animate-bounce-gentle">
                 <Card className="p-3 bg-gradient-primary text-primary-foreground shadow-athletic">
@@ -85,7 +79,7 @@ const AnalysisPreview = () => {
               <div className="absolute -bottom-4 -left-4 animate-bounce-gentle delay-100">
                 <Card className="p-3 bg-gradient-secondary text-primary-foreground shadow-secondary">
                   <div className="text-center">
-                    <div className="text-2xl font-bold">+15°</div>
+                    <div className="text-2xl font-bold">15%</div>
                     <div className="text-xs opacity-90">Improvement</div>
                   </div>
                 </Card>
@@ -94,8 +88,6 @@ const AnalysisPreview = () => {
           </div>
         </div>
       </div>
-    </section>
-  );
+    </section>;
 };
-
 export default AnalysisPreview;
