@@ -1,0 +1,10 @@
+{
+  "baseline_male_outside": {
+    "arm_cock_peak_deg": [115, 140],
+    "elbow_extension_peak_deg": [165, 178],
+    "torso_lean_deg": [8, 18],
+    "penultimate_last_ratio": [1.2, 1.5],
+    "jump_time_s": [0.55, 0.70],
+    "time_to_contact_s": [0.18, 0.28]
+  }
+}
