@@ -179,12 +179,14 @@ const Analysis = () => {
   const pollVideoStatus = useCallback(async (videoId: string) => {
     const poll = async () => {
       try {
-        const { data, error } = await supabase.functions.invoke('get-video-status', {
-          body: { videoId },
-          headers: {
-            Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+        const { data, error } = await supabase.functions.invoke(
+          `get-video-status?videoId=${encodeURIComponent(videoId)}`,
+          {
+            headers: {
+              Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+            }
           }
-        });
+        );
 
         if (error) throw error;
 
