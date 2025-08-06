@@ -5,3 +5,5 @@ verify_jwt = true
 
 [functions.get-video-status]
 verify_jwt = true
+[functions.process-video]
+verify_jwt = true
