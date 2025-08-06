@@ -14,7 +14,74 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      reports: {
+        Row: {
+          created_at: string
+          id: string
+          overlay_url: string | null
+          summary_json_url: string | null
+          video_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          overlay_url?: string | null
+          summary_json_url?: string | null
+          video_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          overlay_url?: string | null
+          summary_json_url?: string | null
+          video_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reports_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      videos: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          fps: number | null
+          height: number | null
+          id: string
+          status: string
+          storage_key: string
+          user_id: string
+          width: number | null
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          fps?: number | null
+          height?: number | null
+          id?: string
+          status?: string
+          storage_key: string
+          user_id: string
+          width?: number | null
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          fps?: number | null
+          height?: number | null
+          id?: string
+          status?: string
+          storage_key?: string
+          user_id?: string
+          width?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

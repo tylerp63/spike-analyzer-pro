@@ -10,7 +10,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 const Results = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const videoUrl = location.state?.videoUrl;
+  const { videoUrl, report, overlayUrl, videoId } = location.state || {};
 
   const performanceData = [
     { metric: "Approach Speed", value: 85, target: 90 },

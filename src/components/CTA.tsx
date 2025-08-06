@@ -54,8 +54,13 @@ const CTA = () => {
                 <Camera className="mr-2 h-5 w-5" />
                 Start Analysis Now
               </Button>
-              <Button variant="outline" size="lg" className="text-lg px-8 py-6 border-2">
-                Learn More
+              <Button 
+                variant="outline" 
+                size="lg" 
+                className="text-lg px-8 py-6 border-2"
+                onClick={() => navigate("/auth")}
+              >
+                Sign In / Sign Up
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </div>

@@ -1,1 +1,7 @@
 project_id = "urogttyhfqerukpuxnwj"
+
+[functions.create-video]
+verify_jwt = true
+
+[functions.get-video-status]
+verify_jwt = true
