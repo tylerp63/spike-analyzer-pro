@@ -90,30 +90,32 @@ def run_pose(frames: List[np.ndarray]) -> np.ndarray:
 
             k_raw = results[0].keypoints[0].cpu().numpy()
 
-            # Ensure it’s a NumPy array with shape (17, 3)
-            if not isinstance(k_raw, np.ndarray):
+            # Flatten multi-dimensional structures (e.g., (1, 17, 3))
+            if isinstance(k_raw, np.ndarray):
+                k_flat = k_raw.squeeze()
+            else:
                 raise TypeError("Keypoints is not a NumPy array")
-            if k_raw.shape != (17, 3):
-                raise ValueError(f"Unexpected shape: {k_raw.shape}")
 
-            keypoints.append(k_raw)
+            # Now check shape again
+            if k_flat.shape != (17, 3):
+                raise ValueError(f"Unexpected shape after squeeze: {k_flat.shape}")
+
+            keypoints.append(k_flat)
 
         except Exception as e:
             print(f"[Frame {i}] Pose ERROR: {e}")
-            keypoints.append(np.full((17, 3), np.nan, dtype=np.float32))  # fallback
+            keypoints.append(np.full((17, 3), np.nan, dtype=np.float32))
 
-    # Log each entry's shape and type before stacking
-    for idx, kp in enumerate(keypoints):
-        print(f"[STACK DEBUG] Frame {idx}: type={type(kp)}, shape={getattr(kp, 'shape', 'N/A')}")
-
-    # Final fallback for malformed entries
+    # Final shape/type check before stack
     clean_keypoints = []
     for idx, kp in enumerate(keypoints):
         if isinstance(kp, np.ndarray) and kp.shape == (17, 3):
             clean_keypoints.append(kp)
         else:
-            print(f"[STACK FIX] Replacing malformed keypoints at frame {idx}")
+            print(f"[STACK FIX] Frame {idx} is invalid: {type(kp)}, shape={getattr(kp, 'shape', 'N/A')}")
             clean_keypoints.append(np.full((17, 3), np.nan, dtype=np.float32))
+
+    print(f"[Pose Summary] Total frames: {len(clean_keypoints)}")
 
     return np.stack(clean_keypoints, axis=0)
 
