@@ -81,25 +81,28 @@ def run_pose(frames: List[np.ndarray]) -> np.ndarray:
     m = load_pose_model()
     keypoints = []
     for i, frame in enumerate(tqdm(frames, desc="Pose")):
-        results = m.predict(source=frame, verbose=False)
-
-        if (
-            not results
-            or results[0].keypoints is None
-            or len(results[0].keypoints) == 0
-        ):
-            k = np.full((17, 3), np.nan, dtype=np.float32)
-        else:
+        try:
+            results = m.predict(source=frame, verbose=False)
+            if (
+                not results
+                or results[0].keypoints is None
+                or len(results[0].keypoints) == 0
+            ):
+                raise ValueError("No keypoints found")
+            
             k_raw = results[0].keypoints[0].cpu().numpy()
-            if k_raw.shape != (17, 3):
-                print(f"Warning: Unexpected keypoint shape at frame {i}: {k_raw.shape}")
-                k = np.full((17, 3), np.nan, dtype=np.float32)
-            else:
-                k = k_raw
 
-        keypoints.append(k)
+            # Handle unexpected shapes (multi-person or broken array)
+            if not isinstance(k_raw, np.ndarray) or k_raw.shape != (17, 3):
+                raise ValueError(f"Bad keypoint shape: {getattr(k_raw, 'shape', 'N/A')}")
 
-    return np.stack(keypoints, axis=0)  # (T,17,3)
+            keypoints.append(k_raw)
+
+        except Exception as e:
+            print(f"[Frame {i}] Pose error: {e}")
+            keypoints.append(np.full((17, 3), np.nan, dtype=np.float32))  # Safe fallback
+
+    return np.stack(keypoints, axis=0)
 
 def smooth_keypoints(kps: np.ndarray) -> np.ndarray:
     T, J, C = kps.shape
