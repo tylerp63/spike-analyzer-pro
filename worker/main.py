@@ -80,29 +80,42 @@ KP = {
 def run_pose(frames: List[np.ndarray]) -> np.ndarray:
     m = load_pose_model()
     keypoints = []
+
     for i, frame in enumerate(tqdm(frames, desc="Pose")):
         try:
             results = m.predict(source=frame, verbose=False)
-            if (
-                not results
-                or results[0].keypoints is None
-                or len(results[0].keypoints) == 0
-            ):
-                raise ValueError("No keypoints found")
-            
+
+            if not results or results[0].keypoints is None or len(results[0].keypoints) == 0:
+                raise ValueError("No keypoints returned")
+
             k_raw = results[0].keypoints[0].cpu().numpy()
 
-            # Handle unexpected shapes (multi-person or broken array)
-            if not isinstance(k_raw, np.ndarray) or k_raw.shape != (17, 3):
-                raise ValueError(f"Bad keypoint shape: {getattr(k_raw, 'shape', 'N/A')}")
+            # Ensure it’s a NumPy array with shape (17, 3)
+            if not isinstance(k_raw, np.ndarray):
+                raise TypeError("Keypoints is not a NumPy array")
+            if k_raw.shape != (17, 3):
+                raise ValueError(f"Unexpected shape: {k_raw.shape}")
 
             keypoints.append(k_raw)
 
         except Exception as e:
-            print(f"[Frame {i}] Pose error: {e}")
-            keypoints.append(np.full((17, 3), np.nan, dtype=np.float32))  # Safe fallback
+            print(f"[Frame {i}] Pose ERROR: {e}")
+            keypoints.append(np.full((17, 3), np.nan, dtype=np.float32))  # fallback
 
-    return np.stack(keypoints, axis=0)
+    # Log each entry's shape and type before stacking
+    for idx, kp in enumerate(keypoints):
+        print(f"[STACK DEBUG] Frame {idx}: type={type(kp)}, shape={getattr(kp, 'shape', 'N/A')}")
+
+    # Final fallback for malformed entries
+    clean_keypoints = []
+    for idx, kp in enumerate(keypoints):
+        if isinstance(kp, np.ndarray) and kp.shape == (17, 3):
+            clean_keypoints.append(kp)
+        else:
+            print(f"[STACK FIX] Replacing malformed keypoints at frame {idx}")
+            clean_keypoints.append(np.full((17, 3), np.nan, dtype=np.float32))
+
+    return np.stack(clean_keypoints, axis=0)
 
 def smooth_keypoints(kps: np.ndarray) -> np.ndarray:
     T, J, C = kps.shape
