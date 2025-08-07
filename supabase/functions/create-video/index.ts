@@ -43,7 +43,7 @@ serve(async (req) => {
       .insert({
         user_id: user.id,
         status: 'queued',
-        storage_key: `raw/${user.id}/${crypto.randomUUID()}.mp4`
+        storage_key: `raw/${user.id}/${crypto.randomUUID()}.webm`
       })
       .select()
       .single();

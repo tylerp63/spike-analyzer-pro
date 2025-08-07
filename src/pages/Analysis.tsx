@@ -163,14 +163,9 @@ const Analysis = () => {
       setUploadedVideoId(videoId);
       toast.success("Video uploaded successfully! Processing started...");
 
-      // Trigger video processing without blocking UI
-      const token = (await supabase.auth.getSession()).data.session?.access_token;
-      supabase.functions
-        .invoke('process-video', {
-          body: { videoId },
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        .catch(console.error);
+      // Processing is handled by the external CV worker.
+      // No direct processing call here; worker polls for queued videos.
+
 
       // Start polling for status
       pollVideoStatus(videoId);
