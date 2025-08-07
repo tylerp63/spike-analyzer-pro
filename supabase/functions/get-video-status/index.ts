@@ -23,23 +23,20 @@ serve(async (req) => {
       });
     }
 
-    // Get user from the request
-    const authHeader = req.headers.get('Authorization')!;
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-    );
-
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    );
-
-    if (authError || !user) {
+    // Require auth and create client with user's token so RLS applies
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    );
 
     // Get video status
     const { data: video, error: videoError } = await supabaseClient
@@ -52,7 +49,6 @@ serve(async (req) => {
         )
       `)
       .eq('id', videoId)
-      .eq('user_id', user.id)
       .single();
 
     if (videoError) {

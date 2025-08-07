@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, Users, Play, Zap, Target } from "lucide-react";
 import baselines from "@/data/pro-baselines.json";
 import { evaluateMetrics, BaselineStatus } from "@/lib/baseline";
+import type { Baselines } from "@/lib/baseline";
 
 const metricLabels: Record<string, string> = {
   arm_cock_peak_deg: "Arm Cock (°)",
@@ -48,7 +49,7 @@ const Results = () => {
     time_to_contact_s: report?.timing?.time_to_contact_s,
   } as Record<string, number | undefined>;
 
-  const statuses = evaluateMetrics(metrics, baseline);
+  const statuses = evaluateMetrics(metrics, baseline as unknown as Baselines);
 
   if (!videoUrl && !overlayUrl) {
     return (
