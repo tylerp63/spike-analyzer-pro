@@ -80,15 +80,26 @@ KP = {
 def run_pose(frames: List[np.ndarray]) -> np.ndarray:
     m = load_pose_model()
     keypoints = []
-    for frame in tqdm(frames, desc="Pose"):
+    for i, frame in enumerate(tqdm(frames, desc="Pose")):
         results = m.predict(source=frame, verbose=False)
-        if len(results) == 0 or results[0].keypoints is None or len(results[0].keypoints) == 0:
+
+        if (
+            not results
+            or results[0].keypoints is None
+            or len(results[0].keypoints) == 0
+        ):
             k = np.full((17, 3), np.nan, dtype=np.float32)
         else:
-            k = results[0].keypoints[0].cpu().numpy()  # (17,3): x,y,conf
-        keypoints.append(k)
-    return np.stack(keypoints, axis=0)  # (T,17,3)
+            k_raw = results[0].keypoints[0].cpu().numpy()
+            if k_raw.shape != (17, 3):
+                print(f"Warning: Unexpected keypoint shape at frame {i}: {k_raw.shape}")
+                k = np.full((17, 3), np.nan, dtype=np.float32)
+            else:
+                k = k_raw
 
+        keypoints.append(k)
+
+    return np.stack(keypoints, axis=0)  # (T,17,3)
 
 def smooth_keypoints(kps: np.ndarray) -> np.ndarray:
     T, J, C = kps.shape
