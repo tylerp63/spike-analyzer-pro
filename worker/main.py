@@ -79,45 +79,73 @@ KP = {
 
 def run_pose(frames: List[np.ndarray]) -> np.ndarray:
     m = load_pose_model()
-    keypoints = []
+    keypoints: List[np.ndarray] = []
 
     for i, frame in enumerate(tqdm(frames, desc="Pose")):
         try:
             results = m.predict(source=frame, verbose=False)
-
-            if not results or results[0].keypoints is None or len(results[0].keypoints) == 0:
+            if not results or getattr(results[0], "keypoints", None) is None:
                 raise ValueError("No keypoints returned")
 
-            k_raw = results[0].keypoints[0].cpu().numpy()
+            kp_obj = results[0].keypoints
+            k_raw = None
 
-            # Flatten multi-dimensional structures (e.g., (1, 17, 3))
-            if isinstance(k_raw, np.ndarray):
-                k_flat = k_raw.squeeze()
-            else:
-                raise TypeError("Keypoints is not a NumPy array")
+            # Preferred (Ultralytics v8): keypoints.data -> (n, 17, 3)
+            if hasattr(kp_obj, "data"):
+                data = kp_obj.data
+                try:
+                    data = data.cpu().numpy()
+                except Exception:
+                    data = np.asarray(data)
+                data = np.squeeze(data)
+                if data.ndim == 3 and data.shape[0] >= 1:
+                    k_raw = data[0]
+                elif data.ndim == 2 and data.shape[0] == 17:
+                    k_raw = data
 
-            # Now check shape again
+            # Fallback: indexable keypoints structure
+            if k_raw is None:
+                try:
+                    tmp = kp_obj[0]
+                    if hasattr(tmp, "cpu"):
+                        k_raw = tmp.cpu().numpy()
+                    else:
+                        k_raw = np.asarray(tmp)
+                except Exception:
+                    pass
+
+            if k_raw is None:
+                raise ValueError("Unable to extract keypoints array")
+
+            k_flat = np.squeeze(np.asarray(k_raw, dtype=np.float32))
+
+            # Normalize to (17, 3)
+            if k_flat.ndim != 2:
+                raise ValueError(f"Unexpected ndim: {k_flat.ndim}, shape={k_flat.shape}")
+            if k_flat.shape == (17, 2):
+                conf = np.ones((17, 1), dtype=np.float32)
+                k_flat = np.concatenate([k_flat, conf], axis=1)
             if k_flat.shape != (17, 3):
-                raise ValueError(f"Unexpected shape after squeeze: {k_flat.shape}")
+                raise ValueError(f"Unexpected shape after normalize: {k_flat.shape}")
 
-            keypoints.append(k_flat)
+            keypoints.append(k_flat.astype(np.float32))
 
         except Exception as e:
             print(f"[Frame {i}] Pose ERROR: {e}")
             keypoints.append(np.full((17, 3), np.nan, dtype=np.float32))
 
     # Final shape/type check before stack
-    clean_keypoints = []
+    clean_keypoints: List[np.ndarray] = []
     for idx, kp in enumerate(keypoints):
-        if isinstance(kp, np.ndarray) and kp.shape == (17, 3):
-            clean_keypoints.append(kp)
+        if isinstance(kp, np.ndarray) and kp.shape == (17, 3) and getattr(kp, 'dtype', None) != object:
+            clean_keypoints.append(kp.astype(np.float32))
         else:
-            print(f"[STACK FIX] Frame {idx} is invalid: {type(kp)}, shape={getattr(kp, 'shape', 'N/A')}")
+            print(f"[STACK FIX] Frame {idx} is invalid: {type(kp)}, shape={getattr(kp, 'shape', 'N/A')}, dtype={getattr(kp, 'dtype', 'N/A')}")
             clean_keypoints.append(np.full((17, 3), np.nan, dtype=np.float32))
 
     print(f"[Pose Summary] Total frames: {len(clean_keypoints)}")
 
-    return np.stack(clean_keypoints, axis=0)
+    return np.stack(clean_keypoints, axis=0).astype(np.float32)
 
 def smooth_keypoints(kps: np.ndarray) -> np.ndarray:
     T, J, C = kps.shape
