@@ -181,12 +181,18 @@ def angle(a: np.ndarray, b: np.ndarray, c: np.ndarray) -> float:
 def detect_events(kps: np.ndarray, fps: float) -> Dict[str, int]:
     # Simple heuristics: use hip y to find apex; ankles y velocity for takeoff
     y_hip = np.nanmean(kps[:, [KP["left_hip"], KP["right_hip"]], 1], axis=1)
-    apex = int(np.nanargmin(y_hip))  # min y (highest)
+    try:
+        apex = int(np.nanargmin(y_hip))  # min y (highest)
+    except ValueError:
+        apex = 0
 
     # vertical velocity of ankles
     y_ank = np.nanmean(kps[:, [KP["left_ankle"], KP["right_ankle"]], 1], axis=1)
     vy = np.gradient(y_ank)
-    takeoff = int(np.argmax(-vy))  # big upward motion
+    try:
+        takeoff = int(np.nanargmax(-vy))  # big upward motion
+    except ValueError:
+        takeoff = apex
 
     # plant: before takeoff where hip starts descent
     dy_hip = np.gradient(y_hip)
@@ -202,7 +208,10 @@ def detect_events(kps: np.ndarray, fps: float) -> Dict[str, int]:
         lk_ang = angle(kps[t, lh, :2], kps[t, lk, :2], kps[t, la, :2])
         rk_ang = angle(kps[t, rh, :2], kps[t, rk, :2], kps[t, ra, :2])
         knee_angles.append(np.nanmean([lk_ang, rk_ang]))
-    max_cm = plant + int(np.nanargmin(knee_angles)) if len(knee_angles) else plant
+    if knee_angles and not np.all(np.isnan(knee_angles)):
+        max_cm = plant + int(np.nanargmin(knee_angles))
+    else:
+        max_cm = plant
 
     # enforce order
     plant = max(0, min(plant, takeoff))
