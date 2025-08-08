@@ -102,6 +102,8 @@ def run_pose(frames: List[np.ndarray]) -> np.ndarray:
                     k_raw = data[0]
                 elif data.ndim == 2 and data.shape[0] == 17:
                     k_raw = data
+                else:
+                    k_raw = None
 
             # Fallback: indexable keypoints structure
             if k_raw is None:
@@ -117,7 +119,10 @@ def run_pose(frames: List[np.ndarray]) -> np.ndarray:
             if k_raw is None:
                 raise ValueError("Unable to extract keypoints array")
 
-            k_flat = np.squeeze(np.asarray(k_raw, dtype=np.float32))
+            k_raw = np.asarray(k_raw, dtype=np.float32)
+            k_flat = np.squeeze(k_raw)
+            if k_flat.ndim == 3 and k_flat.shape[0] >= 1:
+                k_flat = k_flat[0]
 
             # Normalize to (17, 3)
             if k_flat.ndim != 2:
@@ -163,6 +168,7 @@ def smooth_keypoints(kps: np.ndarray) -> np.ndarray:
             # Interpolate low-conf/NaN
             mask = (conf < MIN_CONF) | np.isnan(series)
             if mask.all():
+                print(f"[SMOOTH] joint {j} channel {c} all masked; skipping")
                 continue
             valid_idx = np.where(~mask)[0]
             smoothed[mask, j, c] = np.interp(np.where(mask)[0], valid_idx, series[valid_idx])
@@ -186,13 +192,22 @@ def angle(a: np.ndarray, b: np.ndarray, c: np.ndarray) -> float:
 
 def detect_events(kps: np.ndarray, fps: float) -> Dict[str, int]:
     # Simple heuristics: use hip y to find apex; ankles y velocity for takeoff
+    T = kps.shape[0]
     y_hip = np.nanmean(kps[:, [KP["left_hip"], KP["right_hip"]], 1], axis=1)
-    apex = int(np.nanargmin(y_hip))  # min y (highest)
+    try:
+        apex = int(np.nanargmin(y_hip))  # min y (highest)
+    except ValueError:
+        apex = 0
+        print(f"[EVENT] y_hip all NaN over {T} frames; default apex=0")
 
     # vertical velocity of ankles
     y_ank = np.nanmean(kps[:, [KP["left_ankle"], KP["right_ankle"]], 1], axis=1)
     vy = np.gradient(y_ank)
-    takeoff = int(np.argmax(-vy))  # big upward motion
+    try:
+        takeoff = int(np.nanargmax(-vy))  # big upward motion
+    except ValueError:
+        takeoff = 0
+        print(f"[EVENT] ankle velocity all NaN over {T} frames; default takeoff=0")
 
     # plant: before takeoff where hip starts descent
     dy_hip = np.gradient(y_hip)
@@ -208,12 +223,24 @@ def detect_events(kps: np.ndarray, fps: float) -> Dict[str, int]:
         lk_ang = angle(kps[t, lh, :2], kps[t, lk, :2], kps[t, la, :2])
         rk_ang = angle(kps[t, rh, :2], kps[t, rk, :2], kps[t, ra, :2])
         knee_angles.append(np.nanmean([lk_ang, rk_ang]))
-    max_cm = plant + int(np.nanargmin(knee_angles)) if len(knee_angles) else plant
+    if len(knee_angles):
+        try:
+            max_cm = plant + int(np.nanargmin(knee_angles))
+        except ValueError:
+            max_cm = plant
+            print(f"[EVENT] knee_angles all NaN over {len(knee_angles)} frames; default max_cm=plant")
+    else:
+        max_cm = plant
 
-    # enforce order
+    # enforce order and bounds
     plant = max(0, min(plant, takeoff))
     max_cm = max(plant, min(max_cm, takeoff))
     apex = max(takeoff, apex)
+
+    plant = int(np.clip(plant, 0, T - 1))
+    max_cm = int(np.clip(max_cm, 0, T - 1))
+    takeoff = int(np.clip(takeoff, 0, T - 1))
+    apex = int(np.clip(apex, 0, T - 1))
 
     return {"plant": plant, "max_cm": max_cm, "takeoff": takeoff, "apex": apex}
 
@@ -250,6 +277,7 @@ def compute_metrics(kps: np.ndarray, events: Dict[str, int], fps: float) -> Dict
     # Step ratio: penultimate / last using inter-ankle distance peaks before plant
     la_i, ra_i = KP["left_ankle"], KP["right_ankle"]
     ankle_dist = np.linalg.norm(kps[:plant, la_i, :2] - kps[:plant, ra_i, :2], axis=1)
+    step_ratio = float("nan")
     if len(ankle_dist) >= 4:
         # crude: last two local maxima
         from scipy.signal import find_peaks
@@ -258,9 +286,9 @@ def compute_metrics(kps: np.ndarray, events: Dict[str, int], fps: float) -> Dict
             penult, last = peaks[-2], peaks[-1]
             step_ratio = float(ankle_dist[penult] / (ankle_dist[last] + 1e-6))
         else:
-            step_ratio = float("nan")
+            print("[METRIC] step_ratio cannot be computed (need >=2 peaks)")
     else:
-        step_ratio = float("nan")
+        print("[METRIC] step_ratio cannot be computed (need >=4 samples)")
 
     jump_time = float((apex - takeoff) / fps)
     time_to_contact = float((apex - plant) / fps)
