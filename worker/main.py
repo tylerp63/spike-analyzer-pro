@@ -331,6 +331,7 @@ def process_one(client: Client) -> bool:
     client.table("videos").update({"status": "processing", "error_message": None}).eq("id", vid).execute()
 
     try:
+        stage = 'download'
         # download
         obj = client.storage.from_(BUCKET).download(storage_key)
         with tempfile.TemporaryDirectory() as td:
@@ -338,6 +339,7 @@ def process_one(client: Client) -> bool:
             with open(in_path, "wb") as f:
                 f.write(obj)
 
+            stage = 'decode_video'
             frames, src_fps = read_video_frames(in_path, TARGET_FPS)
             if not frames:
                 raise RuntimeError("No frames decoded")
@@ -347,14 +349,19 @@ def process_one(client: Client) -> bool:
             client.table("videos").update({"fps": int(round(src_fps)), "width": w, "height": h}).eq("id", vid).execute()
 
             # pose → smooth → events → metrics
+            stage = 'pose'
             raw_kps = run_pose(frames)
+            stage = 'smooth'
             sm_kps = smooth_keypoints(raw_kps)
+            stage = 'events'
             events = detect_events(sm_kps, src_fps)
+            stage = 'metrics'
             metrics = compute_metrics(sm_kps, events, src_fps)
             recs = recommend(metrics)
 
             # overlay
             overlay_path = os.path.join(td, "overlay.mp4")
+            stage = 'overlay_render'
             draw_overlay(frames, sm_kps, events, overlay_path, fps=min(TARGET_FPS, int(round(src_fps)) or TARGET_FPS))
 
             # upload artifacts
@@ -362,6 +369,7 @@ def process_one(client: Client) -> bool:
             report_key = f"processed/{vid}/summary.json"
 
             with open(overlay_path, "rb") as f:
+                stage = 'upload_overlay'
                 client.storage.from_(BUCKET).upload(overlay_key, f.read(), {
                     "contentType": "video/mp4",
                     "upsert": True,
@@ -375,17 +383,20 @@ def process_one(client: Client) -> bool:
                 "timing": metrics.get("timing", {}),
                 "recommendations": recs,
             }
+            stage = 'upload_report'
             client.storage.from_(BUCKET).upload(report_key, json.dumps(report).encode("utf-8"), {
                 "contentType": "application/json",
                 "upsert": True,
             })
 
             # persist report row and mark done
+            stage = 'insert_report'
             client.table("reports").insert({
                 "video_id": vid,
                 "overlay_url": overlay_key,
                 "summary_json_url": report_key,
             }).execute()
+            stage = 'update_status'
             client.table("videos").update({"status": "done"}).eq("id", vid).execute()
             print(f"Processed video {vid}")
             return True
@@ -393,8 +404,8 @@ def process_one(client: Client) -> bool:
     except Exception as e:
         import traceback
         tb = traceback.format_exc()
-        print("Processing error:", tb)
-        client.table("videos").update({"status": "failed", "error_message": tb}).eq("id", vid).execute()
+        print(f"Processing error at stage {stage}:", tb)
+        client.table("videos").update({"status": "failed", "error_message": f"{stage}: {tb}"}).eq("id", vid).execute()
         return True
 
 
