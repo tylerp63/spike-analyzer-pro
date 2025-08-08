@@ -144,8 +144,14 @@ def run_pose(frames: List[np.ndarray]) -> np.ndarray:
             clean_keypoints.append(np.full((17, 3), np.nan, dtype=np.float32))
 
     print(f"[Pose Summary] Total frames: {len(clean_keypoints)}")
-
-    return np.stack(clean_keypoints, axis=0).astype(np.float32)
+    try:
+        stacked = np.stack(clean_keypoints, axis=0).astype(np.float32)
+    except Exception as e:
+        print(f"[STACK ERROR] {e}")
+        for j, kp in enumerate(clean_keypoints[:5]):
+            print(f"  sample[{j}] type={type(kp)}, shape={getattr(kp, 'shape', None)}, dtype={getattr(kp, 'dtype', None)}")
+        stacked = np.stack([np.full((17, 3), np.nan, dtype=np.float32) for _ in clean_keypoints], axis=0)
+    return stacked
 
 def smooth_keypoints(kps: np.ndarray) -> np.ndarray:
     T, J, C = kps.shape
@@ -385,8 +391,10 @@ def process_one(client: Client) -> bool:
             return True
 
     except Exception as e:
-        print("Processing error:", e)
-        client.table("videos").update({"status": "failed", "error_message": str(e)}).eq("id", vid).execute()
+        import traceback
+        tb = traceback.format_exc()
+        print("Processing error:", tb)
+        client.table("videos").update({"status": "failed", "error_message": tb}).eq("id", vid).execute()
         return True
 
 
